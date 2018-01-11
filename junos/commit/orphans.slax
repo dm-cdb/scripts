@@ -70,7 +70,7 @@ template checkPol($polname) {
         }
     }
     if ($i == 0) {
-        for-each (../../protocols/bgp/group/child::export | ../../protocols/bgp/group/child::import){
+        for-each (../../protocols/bgp/group/descendant::export | ../../protocols/bgp/group/descendant::import){
             if ( jcs:regex($pattern, .)) {
                 set $i = $i + 1;
             }
@@ -84,7 +84,14 @@ template checkPol($polname) {
         }
     }
     if ($i == 0) {
-        for-each (../../routing-instances/instance/protocols/bgp/group/child::export | ../../routing-instances/instance/protocols/bgp/group/child::import){
+        for-each (../../routing-instances/instance/protocols/bgp/group/descendant::export | ../../routing-instances/instance/protocols/bgp/group/descendant::import){
+            if ( jcs:regex($pattern, .)) {
+                set $i = $i + 1;
+            }
+        }
+    }
+    if ($i == 0) {
+        for-each (../../routing-options/forwarding-table/child::export) {
             if ( jcs:regex($pattern, .)) {
                 set $i = $i + 1;
             }
