@@ -1,0 +1,103 @@
+version 1.2;
+ns junos = "http://xml.juniper.net/junos/*/junos";
+ns xnm = "http://xml.juniper.net/xnm/1.1/xnm";
+ns jcs = "http://xml.juniper.net/junos/commit-scripts/1.0";
+import "../import/junos.xsl";
+
+match configuration {
+    for-each (policy-options/prefix-list[name]){
+        var $prefname = name;
+        call checkPref($prefname);
+    }
+   for-each (policy-options/policy-statement[name]){
+        var $polname = name;
+        call checkPol($polname);
+    }
+   for-each (policy-options/as-path[name]){
+        var $aspathname = name;
+        call checkAspath($aspathname);
+    }
+    for-each (policy-options/as-path-group[name]){
+        var $aspathg = name;
+        call checkAspathG($aspathg);
+    }
+    for-each (policy-options/community[name]){
+        var $community = name;
+        call checkComm($community);
+    }
+
+}
+
+template checkPref($prefname) {
+    mvar $i = 0;
+    for-each (../../policy-options/policy-statement//prefix-list[name == $prefname]) {
+        set $i = $i + 1;
+    }
+    if ($i == 0) {
+        for-each (../../firewall//*[name == $prefname]) {
+            set $i = $i + 1;
+        }
+    }
+    if ($i == 0) {
+        for-each (../../snmp/community[client-list-name == $prefname]) {
+            set $i = $i + 1;
+        }
+    }
+    if ($i == 0) {
+        <xnm:warning> {
+            /* call jcs:edit-path($dot=.); */
+            <message> "prefix list " _ $prefname _ " is orphan.";
+        }
+    }
+}
+
+template checkPol($polname) {
+    mvar $i = 0;
+    /* soit policy isolee, soit membre d'une expression */
+    var $pattern = "^" _ $polname _ "$| " _ $polname _ " ";
+    for-each (../../policy-options/policy-statement/descendant::policy) {
+        if ( jcs:regex($pattern, .)) {
+            set $i = $i + 1;
+        }
+    }
+    if ($i == 0) {
+        for-each (../../protocols/bgp/group/child::export | ../../protocols/bgp/group/child::import){
+            if ( jcs:regex($pattern, .)) {
+                set $i = $i + 1;
+            }
+        }
+    }
+    if ($i == 0) {
+        for-each (../../routing-instances/instance/child::vrf-export | ../../routing-instances/instance/child::vrf-import){
+            if ( jcs:regex($pattern, .)) {
+                set $i = $i + 1;
+            }
+        }
+    }
+    if ($i == 0) {
+        for-each (../../routing-instances/instance/protocols/bgp/group/child::export | ../../routing-instances/instance/protocols/bgp/group/child::import){
+            if ( jcs:regex($pattern, .)) {
+                set $i = $i + 1;
+            }
+        }
+    }
+    if ($i == 0) {
+        <xnm:warning> {
+            /* call jcs:edit-path($dot=.); */
+            <message> "policy " _ $polname _ " is orphan.";
+        }
+    }
+}
+
+template checkAspath($aspathname) {
+    mvar $i = 0;
+    for-each (../../policy-options/policy-statement/descendant::from[as-path == $aspathname]) {
+        set $i = $i + 1;
+    }
+    if ($i == 0) {
+        <xnm:warning> {
+            <message> "as-path " _ $aspathname _ " is orphan.";
+        }
+    }
+}
+
