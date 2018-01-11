@@ -1,7 +1,7 @@
 # scripts
 Various scripts
 
-Holding place for various scripts used in a professionnal environement.
+Holding place for various scripts used in a professionnal environnement.
 
 Junos is the place holder for various commit / event / op scripts
 
