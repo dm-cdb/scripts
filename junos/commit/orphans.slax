@@ -3,6 +3,7 @@
 * If at least one occurrence is found, the script search for the next object.
 * Please adapt this script to your own need : ie the present script does not look for policies 
 * related to the OSPF protocols, logical system etc.
+* Please note deactivated statements in Junos config are not parsed by this script
 * Also please note the use of mutable variable requires Junos 12.2 or later.
 */
 
