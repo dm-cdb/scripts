@@ -1,0 +1,68 @@
+/* Display short view of tcp connections */
+version 1.0;
+ns junos = "http://xml.juniper.net/junos/*/junos";
+ns xnm = "http://xml.juniper.net/xnm/1.1/xnm";
+ns jcs = "http://xml.juniper.net/junos/commit-scripts/1.0";
+import "../import/junos.xsl";
+
+/* This variable defines the CLI help text */
+var $arguments = {
+        <argument> {
+          <name> "family";
+          <description> "show established tcp inet|inet6 connections";
+          }
+        }
+
+param $family = "inet";
+
+match / {
+        <op-script-results> {
+        if( not(($family == "inet")||($family == "inet6")) ) {
+         <xnm:error> {
+                <message> { expr "invalid family parameter : use inet | inet6\n";
+                            expr "arg rejected : ";
+                            expr $family;
+                        }
+                }
+          <xsl:message terminate="yes"> "Exiting...";
+         }
+        var $rpc = { <command> 'show system connections ' _ $family _ ' extensive'; };
+        var $result = jcs:invoke($rpc);
+        var $lines = jcs:break-lines($result);
+        var $pattern = "[ \t]+";
+        var $outputl1 = { if( $family == "inet" ) {
+                expr jcs:printf("%-10s %-10s %-10s %-20s %-20s %-15s %s","Proto","Recv-Q","Send-Q","Local Address","Foreign Address", "State", "MSS");
+                }
+                else if ( $family == "inet6") {
+                 expr jcs:printf("%-10s %-10s %-10s %-40s %-40s %-15s %s","Proto","Recv-Q","Send-Q","Local Address","Foreign Address", "State", "MSS");
+                }
+               }
+        <output> $outputl1;
+
+         for-each ($lines) {
+          if (contains(., "ESTAB")) {
+           var $cur-line = .;
+           var $subs = jcs:split($pattern, .);
+           var $disp-mss = { call get-mss ( $cur-line, $result ); }
+           var $outputl2 =  { if( $family == "inet" ) {
+               expr jcs:printf("%-10s %-10s %-10s %-20s %-20s %-15s %s",$subs[1],$subs[2],$subs[3],$subs[4],$subs[5],$subs[6], $disp-mss);
+               }
+              else if ( $family == "inet6") {
+               expr jcs:printf("%-10s %-10s %-10s %-40s %-40s %-15s %s",$subs[1],$subs[2],$subs[3],$subs[4],$subs[5],$subs[6], $disp-mss);
+               }
+              }
+          <output> $outputl2;
+           }
+        }
+    }
+}
+
+template get-mss ( $cur-line, $result ) {
+        var $pattern = "(mss:)([ \t]+)([0-9]{3,5})";
+        var $sub1 = substring-after( $result, $cur-line );
+        var $sub2 = substring-before( $sub1, "flags" );
+        var $get-my-mss = jcs:regex($pattern, $sub2);
+        expr $get-my-mss[4];
+  }
+
+
