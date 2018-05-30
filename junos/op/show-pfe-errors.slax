@@ -1,0 +1,45 @@
+
+/* This script parse all fpc/mpc and looks for cell errors
+* From command 'show pfe statistics traffic fpc 0 | match "info|fab"'
+* Christian de Balorre 28/05/2018
+*/
+
+version 1.2;
+
+ns junos = "http://xml.juniper.net/junos/*/junos";
+ns xnm = "http://xml.juniper.net/xnm/1.1/xnm";
+ns jcs = "http://xml.juniper.net/junos/commit-scripts/1.0";
+ns ext = "http://xmlsoft.org/XSLT/namespace";
+ns exsl = "http://exslt.org/common";
+ns str = "http://exslt.org/strings";
+
+import "../import/junos.xsl";
+
+match / {
+    <op-script-results> {
+        var $res1 = jcs:invoke("get-chassis-inventory");
+        var $fpc := { for-each ($res1/chassis/chassis-module/name) {
+            var $reg = jcs:regex("[[:digit:]]{1,2}", jcs:regex("FPC [[:digit:]]{1,2}", .));
+            if ( $reg ){
+                <output> $reg _ ";";
+                }
+            }
+        }
+        var $string = substring ($fpc, 1, string-length($fpc) -1);
+        var $fpcarray = jcs:split(";", $string);
+        expr jcs:output(jcs:printf("|%-10s|%-15s|%-15s|", "  FPC slot", "   Info drop", "   Fab drop"));
+        for-each ( $fpcarray ) {
+                var $cde-set := {
+                    <get-pfe-statistics> {
+                        <fpc> .;
+                        }
+                    }
+                var $res2 = jcs:invoke($cde-set);
+                var $infodrop = $res2/pfe-hardware-discard-statistics/info-cell-discard;
+                var $fabdrop = $res2/pfe-hardware-discard-statistics/fabric-discard;
+                expr jcs:output(jcs:printf("%-10s%-15s%-15s", "    " _  ., "    " _ $infodrop, "     " _ $fabdrop));
+                }
+        } /* op-script */
+
+    }
+
