@@ -1,5 +1,5 @@
 # scripts
-Various scripts
+Various Junos scripts
 
 Holding place for various scripts used in a professionnal environnement.
 
