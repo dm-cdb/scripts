@@ -1,8 +1,11 @@
-
-/* This script parse all fpc/mpc and looks for cell errors
-* From command 'show pfe statistics traffic fpc 0 | match "info|fab"'
-* Christian de Balorre 28/05/2018
+/* op script
+* Quick command to show pfe errors incrementing :
+* List all fpc and build a $fpc node with list of fpc's separated with ";
+* Create array of fpc, and parse each fpc in array for stats
+* Display cell drops and info drops per fpc
+* Christian de Balorre Dailymotion 2018
 */
+
 
 version 1.2;
 
