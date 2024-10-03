@@ -1,0 +1,58 @@
+/* commit script
+* Check that interface tags are uppercase
+* check that external interface has netflow-external group
+* Check that loopback has a v4 & v6 firewall filter applied
+* Christian de Balorre 2017 for Dailymotion
+*/
+
+
+
+version 1.0;
+ns junos = "http://xml.juniper.net/junos/*/junos";
+ns xnm = "http://xml.juniper.net/xnm/1.1/xnm";
+ns jcs = "http://xml.juniper.net/junos/commit-scripts/1.0";
+import "../import/junos.xsl";
+
+match configuration {
+    /* Check that interface tags are uppercase */
+    for-each (interfaces/interface/*/description) {
+        var $descr = .;
+        var $reg1 = jcs:regex ("^\{([a-z]){2,}\}", $descr);
+        if ($reg1[1]) {
+           <xnm:warning> {
+               call jcs:edit-path();
+               call jcs:statement();
+               <message> "Interface tags in {} must be UPPERCASE you scum !";
+          }
+       }
+    } /* end for-each loop */
+
+    /* Check apply group on external interfaces */
+    for-each (interfaces/interface) {
+       var $context = .;
+       if ( ($context/*/description[starts-with(.,'{TRS}') or starts-with(.,'{PPI}') or starts-with(.,'{PNI}')]) and ($context/unit) ) {
+           if (count($context//*[@junos:group == "netflow-external"]) = 0) {
+               <xnm:warning> {
+                   call jcs:edit-path();
+                   call jcs:statement();
+                   <message> "apply-group netflow-external not found";
+              }
+          }
+      }
+    } /* end for-each loop */
+
+    /* Check inet filter on lo0 */
+    if (not(interfaces/interface[name="lo0"]/unit[name=0]/family/inet/filter)) {
+        <xnm:warning> {
+           call jcs:edit-path($dot = interfaces/interface[name="lo0"]);
+           <message> "No inet firewall filter on lo0 !!";
+       }
+    }
+    if ((interfaces/interface[name="lo0"]/unit[name=0]/family/inet6) and not (interfaces/interface[name="lo0"]/unit[name=0]/family/inet6/filter)) {
+        <xnm:warning> {
+           call jcs:edit-path($dot = interfaces/interface[name="lo0"]);
+           <message> "No inet6 firewall filter on lo0 !!";
+       }
+    }
+
+} /* end of match */
