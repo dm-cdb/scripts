@@ -1,0 +1,53 @@
+/* op script to be run as event-options
+* Detect spanning tree topology change on stp root switch
+* Compare the root bridge mac with the current switch mac for each vlan
+* Send alarms if mac does not match, as current switch should the root
+* Christian de Balorre 2018 for Dailymotion
+*/
+
+
+version 1.2;
+
+ns junos = "http://xml.juniper.net/junos/*/junos";
+ns xnm = "http://xml.juniper.net/xnm/1.1/xnm";
+ns jcs = "http://xml.juniper.net/junos/commit-scripts/1.0";
+ns ext = "http://xmlsoft.org/XSLT/namespace";
+ns exsl = "http://exslt.org/common";
+ns str = "http://exslt.org/strings";
+
+import "../import/junos.xsl";
+
+match / {
+    <op-script-results> {
+        var $rpc1 = <get-vlan-information format="brief">;
+        var $res1 = jcs:invoke ($rpc1);
+        var $vlans := { for-each ($res1/vlan/vlan-tag) {
+            <output> . _ ";";
+            }}
+        var $vlanarray = jcs:split(";", $vlans);
+        var $counter = count($vlanarray);
+        /* for-each($vlanarray) {
+          *  expr jcs:output(.);
+           } */
+
+        for-each (1  ... $counter - 1) {
+            var $i = number(.);
+            var $rpc2 := {
+                <get-stp-bridge-information> {
+                    <vlan-id>$vlanarray[$i];
+                }}
+            var $res2 = jcs:invoke ($rpc2);
+            var $root-mac = $res2/vst-bridge-parameters/root-bridge/bridge-mac;
+            var $this-mac = $res2/vst-bridge-parameters/this-bridge/bridge-mac;
+            if ($vlanarray[$i] > 0 && not($root-mac == $this-mac)) {
+                var $hack = $res2/vst-bridge-parameters/topology-change-initiator;
+                var $log = "Topology change for vlan " _ $vlanarray[$i] _ " from interface " _ $hack _ " and bridge ID "_ $root-mac;
+                expr jcs:syslog(10, $log);
+                var $setalarm = {
+                    <command> "set alarm red long-msg \"Spannning-tree topology change\" alarm-life 330 alarm-id 666 short-msg \"STP change\"";
+                    }
+                expr jcs:invoke($setalarm);
+                }
+            }
+        } /* op-script */
+    }

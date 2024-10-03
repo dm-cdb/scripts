@@ -1,0 +1,121 @@
+/* op script to be run as event-options
+* Log and display red alarm on high pfe errors :
+* Open a basic log-db file
+* Count pfe number in chassis
+* Get cell drops and fabric discardis for each pfe and compare with previous data
+* If error > 10000, trigger chassis alarm
+* Update db file with last stats
+* Christian de Balorre 2017 for dailymotion
+*/
+
+version 1.1;
+
+ns junos = "http://xml.juniper.net/junos/*/junos";
+ns xnm = "http://xml.juniper.net/xnm/1.1/xnm";
+ns jcs = "http://xml.juniper.net/junos/commit-scripts/1.0";
+ns ext = "http://xmlsoft.org/XSLT/namespace";
+ns exsl = "http://exslt.org/common";
+
+import "../import/junos.xsl";
+
+match / {
+    <op-script-results>{
+        var $href = "/var/tmp/pfeoutput.txt";
+        mvar $pfecount = 0;
+        mvar $i = 1;
+        mvar $logtemp;
+        var $rpc-pfe = <get-pfe-traffic-statistics>;
+        var $pfe = jcs:invoke($rpc-pfe);
+        var $rpcget = {
+            <file-get> {
+                <filename> $href;
+                <encoding> "raw";
+            }
+        }
+        var $fileget = jcs:invoke( $rpcget );
+        var $logexist = {
+            if( $fileget/success ) {
+                expr 1;
+            }
+            else {
+                expr 0;
+            }
+        }
+        /* every variable in if statement considered local to statement
+         * so we call a template to evaluate conditional break-file
+         * a template can only return a rtf ; so we return a copy-of to get rtf of break-line result
+         * then we convert the rtf into a node set and set the root to $previous
+        */
+        var $line = { call filebreak( $fileget, $logexist ); }
+        var $previous = exsl:node-set( $line )/*;
+        for-each ( $pfe/pfe-fpc-details ) {
+            set $pfecount = $pfecount + 1;
+        }
+        while($i <= $pfecount) {
+            var $fpcindex = $pfe/pfe-fpc-details[$i]/pfe-fpc-index;
+            var $pfeindex = $pfe/pfe-fpc-details[$i]/pfe-index;
+            var $fabdrop = $pfe/pfe-hardware-discard-statistics[$i]/fabric-discard;
+            var $cellinfodrop =  $pfe/pfe-hardware-discard-statistics[$i]/info-cell-discard;
+            append $logtemp += $cellinfodrop _ ":" _ $fabdrop _ "\n";
+            if ( $logexist ) {
+              /* debug <output> "Previous is : " _ $previous[$i]; */
+                call comparedrops ($cellinfodrop, $fabdrop, $fpcprev = $previous[$i], $fpcindex, $pfeindex);
+            }
+            set $i = $i + 1;
+        }
+        set $i = 1;
+        var $rpcput = {
+            <file-put> {
+                <filename> $href;
+                <permission> "644";
+                <encoding> "ascii";
+                <delete-if-exist>;
+                <file-contents> $logtemp;
+            }
+        }
+        var $fileput = jcs:invoke( $rpcput );
+        if ( $fileput/..//xnm:error ) {
+            for-each( $fileput/..//xnm:error ) {
+                expr jcs:output( message );
+            }
+        }
+
+    } /* end of op-script-results */
+} /* end of match */
+
+/* Templates */
+    template filebreak ( $fileget, $logexist ) {
+        if ($logexist) {
+            var $line =  jcs:break-lines( $fileget/file-contents );
+            copy-of $line;
+        }
+    }
+
+    template comparedrops ( $cellinfodrop, $fabdrop, $fpcprev, $fpcindex, $pfeindex ) {
+        var $res = jcs:split( ":" , $fpcprev );
+        var $previnfo = $res[1];
+        var $prevfab = $res[2];
+        if ( $cellinfodrop > $previnfo ) {
+            var $diff  = number ($cellinfodrop) - number ($previnfo);
+            /* expr jcs:output ($diff _ " Cell info drops at fpc " _ $fpcindex _ " " _ $pfeindex _ "."); */
+            expr jcs:syslog ( 162, $diff _ " Cell info drops at fpc " _ $fpcindex _ " at pfe " _ $pfeindex _ ".");
+            if ( $diff > 10000 ){
+                var $setalarm = {
+                    <command> "set alarm red long-msg \"Info cell drops detected\" alarm-life 300 alarm-id 666 short-msg \"Info drops\"";
+                }
+                expr jcs:invoke($setalarm);
+            }
+        }
+        if ( $fabdrop > $prevfab ) {
+            var $diff  = number ($fabdrop) - number ($prevfab);
+            /* expr jcs:output ($diff _ " Fab drops at fpc " _ $fpcindex _ " " _ $pfeindex _ "."); */
+            expr jcs:syslog ( 162, $diff _ " Fab drops at fpc " _ $fpcindex _ " at pfe " _ $pfeindex _ ".");
+            if ( $diff > 10000 ){
+                var $setalarm = {
+                    <command>  "set alarm red long-msg \"Fab cell drops detected\" alarm-life 300 alarm-id 667 short-msg \"Fab drops\"";
+                }
+                expr jcs:invoke($setalarm);
+            }
+        }
+    }
+
