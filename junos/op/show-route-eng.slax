@@ -1,0 +1,59 @@
+/* op script
+* display configured routing engineering
+* display route in policy v4-pfx
+* display route in as-path-group as-
+* Christian de Balorre 2018 for Dailymotion
+*/
+
+version 1.2;
+ns junos = "http://xml.juniper.net/junos/*/junos";
+ns xnm = "http://xml.juniper.net/xnm/1.1/xnm";
+ns jcs = "http://xml.juniper.net/junos/commit-scripts/1.0";
+ns str = "http://exslt.org/strings";
+import "../import/junos.xsl";
+
+match / {
+    <op-script-results> {
+    /* API Element to retrieve the policy-options configuration in XML */
+        var $config-rpc = {
+            <get-configuration database="committed"> {
+                <configuration> {
+                    <policy-options>;
+                    }
+                }
+            }
+
+        var $result = jcs:invoke( $config-rpc );
+        var $pfxpattern = "v4-pfx";
+        var $ippattern = "0\\.0\\.0\\.0";
+        var $pfxformat = "%-20s %-20s";
+        expr jcs:output("\nChecking prefix list : \r");
+        expr jcs:output(jcs:printf($pfxformat, "    Prefix", "    in Policy"));
+        expr jcs:output( str:padding(40, "-"));
+        for-each ($result/policy-options/policy-statement/name[starts-with(., $pfxpattern)]) {
+            var $context = ../name;
+            for-each (../descendant::route-filter/address) {
+                if ( not ( jcs:regex ($ippattern, .))) {
+                    expr jcs:output(jcs:printf($pfxformat, ., $context));
+                }
+            }
+        }
+        expr jcs:output("\n\nChecking as-path-group : \r");
+        var $asgpattern1 = "as-pref";
+        var $asgpattern2 = "as-depref";
+        var $asgpattern3 = "as-filter";
+        var $aspattern = "65000";
+        var $asformat = "%-20s %-20s %-32s";
+        expr jcs:output(jcs:printf($asformat, "    Name", "   AS path", "      in As-path-group"));
+        expr jcs:output(str:padding(72, "-"));
+        for-each ($result/policy-options/as-path-group/name[starts-with(., $asgpattern1) or starts-with(., $asgpattern2) or starts-with(., $asgpattern3)]) {
+            var $context = ../name;
+            for-each (../descendant::path) {
+                if ( not ( jcs:regex ($aspattern, .))) {
+                    expr jcs:output(jcs:printf($asformat, ../name,  ., $context));
+                }
+            }
+        }
+    }
+}
+

@@ -1,0 +1,60 @@
+/* op script
+* List orphaned vlans (not allocated to any interfaces)
+* List configured vlans and total number of configured interfaces in each vlan
+* If no active interface in vlan, check physical status of interfaces for this specific vlan
+* Display result
+* Christian de Balorre for Dailymotion 2017
+*/
+
+
+version 1.0;
+ns junos = "http://xml.juniper.net/junos/*/junos";
+ns xnm = "http://xml.juniper.net/xnm/1.1/xnm";
+ns jcs = "http://xml.juniper.net/junos/commit-scripts/1.0";
+import "../import/junos.xsl";
+
+/* Check inactive vlans */
+
+match / {
+<op-script-results> {
+
+    expr jcs:output('Collecting information - this can take a few seconds...');
+    <output> "\n";
+    var $rpc1 = <get-vlan-information format="brief">;
+    var $vlanlist = jcs:invoke ($rpc1);
+    for-each ( $vlanlist/vlan) {
+        var $vname = ./vlan-tag-string;
+        var $upcount = ./vlan-members-upcount;
+        var $totport = ./vlan-members-count;
+        if (( ./vlan-members-upcount = 0 ) && ( ./vlan-name != default )) {
+            <output> jcs:printf('Inactive vlan : %-10s configured on %3u interfaces\n', $vname, $totport);
+            var $rpc11 =  <get-vlan-information> {
+                <terse>;
+                <vlan-name>$vname;
+                }
+            var $portlist = jcs:invoke ($rpc11);
+            for-each ($portlist/vlan/vlan-detail/vlan-member-list/vlan-member) {
+                var $port = ./vlan-member-interface;
+                var $status = call get-ifstatus($port);
+                /* var $status = { call get-ifstatus($port);} for older junos version */
+                <output> "Interface : " _ $port _ "     " _ "Status : " _ $status;
+                }
+            }
+        }
+
+
+    }
+}
+
+
+template get-ifstatus($port) {
+    var $sep = "(\\.)";
+    var $ifname = jcs:split($sep, $port);
+    var $rpc1 = <get-interface-information> {
+        <terse>;
+        <interface-name> $ifname;
+        }
+    var $res = jcs:invoke ($rpc1);
+    expr $res/physical-interface/oper-status _ " -> " _ $res/physical-interface/description;
+   }
+
