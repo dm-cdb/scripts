@@ -5,7 +5,7 @@
 * Get cell drops and fabric discardis for each pfe and compare with previous data
 * If error > 10000, trigger chassis alarm
 * Update db file with last stats
-* Christian de Balorre 2017 for dailymotion
+* Christian de Balorre 2017
 */
 
 version 1.1;

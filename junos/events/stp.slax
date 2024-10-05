@@ -2,7 +2,7 @@
 * Detect spanning tree topology change on stp root switch
 * Compare the root bridge mac with the current switch mac for each vlan
 * Send alarms if mac does not match, as current switch should the root
-* Christian de Balorre 2018 for Dailymotion
+* Christian de Balorre 2018
 */
 
 

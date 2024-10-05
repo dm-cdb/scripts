@@ -2,7 +2,7 @@
 * display configured routing engineering
 * display route in policy v4-pfx
 * display route in as-path-group as-
-* Christian de Balorre 2018 for Dailymotion
+* Christian de Balorre 2018
 */
 
 version 1.2;

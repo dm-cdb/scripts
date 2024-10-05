@@ -2,7 +2,7 @@
 * Check that interface tags are uppercase
 * check that external interface has netflow-external group
 * Check that loopback has a v4 & v6 firewall filter applied
-* Christian de Balorre 2017 for Dailymotion
+* Christian de Balorre 2017
 */
 
 

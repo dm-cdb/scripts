@@ -3,7 +3,7 @@
 * List configured vlans and total number of configured interfaces in each vlan
 * If no active interface in vlan, check physical status of interfaces for this specific vlan
 * Display result
-* Christian de Balorre for Dailymotion 2017
+* Christian de Balorre 2017
 */
 
 

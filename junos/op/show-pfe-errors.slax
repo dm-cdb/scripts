@@ -3,7 +3,7 @@
 * List all fpc and build a $fpc node with list of fpc's separated with ";
 * Create array of fpc, and parse each fpc in array for stats
 * Display cell drops and info drops per fpc
-* Christian de Balorre Dailymotion 2018
+* Christian de Balorre 2018
 */
 
 

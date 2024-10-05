@@ -3,7 +3,7 @@
 * Parse each policy node
 * call an associate template and check relevant place holder for occurence
 * if no occurrence at all in various place holder, display warning
-* Christian de Balorre Dailymotion 2018
+* Christian de Balorre 2018
 */
 
 version 1.2;
